@@ -1,0 +1,162 @@
+LAMMPS (29 Sep 2021 - Update 2)
+# 2-d LJ flow simulation
+
+dimension	2
+boundary	p s p
+
+atom_style	atomic
+neighbor	0.3 bin
+neigh_modify	delay 5
+
+# create geometry
+
+lattice		hex 0.7
+Lattice spacing in x,y,z = 1.2843567 2.2245711 1.2843567
+region		box block 0 20 0 10 -0.25 0.25
+create_box	3 box
+Created orthogonal box = (0.0000000 0.0000000 -0.32108918) to (25.687135 22.245711 0.32108918)
+  2 by 2 by 1 MPI processor grid
+create_atoms	1 box
+Created 420 atoms
+  using lattice units in orthogonal box = (0.0000000 -0.0022245711 -0.32108918) to (25.687135 22.247936 0.32108918)
+  create_atoms CPU = 0.000 seconds
+
+mass		1 1.0
+mass		2 1.0
+mass		3 1.0
+
+# LJ potentials
+
+pair_style	lj/cut 11.2246
+pair_coeff	* * 1.0 1.0 11.2246
+
+# define groups
+
+region	     1 block INF INF INF 1.25 INF INF
+group	     lower region 1
+60 atoms in group lower
+region	     2 block INF INF 8.75 INF INF INF
+group	     upper region 2
+60 atoms in group upper
+group	     boundary union lower upper
+120 atoms in group boundary
+group	     flow subtract all boundary
+300 atoms in group flow
+
+set	     group lower type 2
+Setting atom values ...
+  60 settings made for type
+set	     group upper type 3
+Setting atom values ...
+  60 settings made for type
+
+# initial velocities
+
+compute	     mobile flow temp
+velocity     all create 3.0 482748 temp mobile
+WARNING: Mismatch between velocity and compute groups (../velocity.cpp:200)
+fix	     1 all nve
+fix	     2 flow temp/rescale 200 1.0 1.0 0.02 1.0
+fix_modify   2 temp mobile
+
+# Couette flow
+
+#velocity     lower set 0.0 0.0 0.0
+#velocity     upper set 3.0 0.0 0.0
+#fix	     3 boundary setforce 0.0 0.0 0.0
+#fix	     4 all enforce2d
+
+# Poiseuille flow
+
+velocity     boundary set 0.0 0.0 0.0
+fix	     3 lower setforce 0.0 0.0 0.0
+fix	     4 upper setforce 0.0 NULL 0.0
+fix	     5 upper aveforce 0.0 -1.0 0.0
+fix	     6 flow addforce 0.5 0.0 0.0
+fix	     7 all enforce2d
+
+# Run
+
+timestep	0.003
+thermo		500
+thermo_modify	temp mobile
+WARNING: Temperature for thermo pressure is not for group all (../thermo.cpp:482)
+
+dump		1 all atom 500 dump.flow
+
+compute         myRDF all rdf 50
+fix             rdf all ave/time 50 1 500 c_myRDF[*] file rdf/tmp_3.0.rdf mode vector
+#dump		2 all image 100 image.*.jpg type type #		zoom 1.6 adiam 1.5
+#dump_modify	2 pad 5
+
+#dump		3 all movie 100 movie.mpg type type #		zoom 1.6 adiam 1.5
+#dump_modify	3 pad 5
+
+run		10000
+Neighbor list info ...
+  update every 1 steps, delay 5 steps, check yes
+  max neighbors/atom: 2000, page size: 100000
+  master list distance cutoff = 11.5246
+  ghost atom cutoff = 11.5246
+  binsize = 5.7623, bins = 5 4 1
+  2 neighbor lists, perpetual/occasional/extra = 1 1 0
+  (1) pair lj/cut, perpetual
+      attributes: half, newton on
+      pair build: half/bin/atomonly/newton
+      stencil: half/bin/2d
+      bin: standard
+  (2) compute rdf, occasional, copy from (1)
+      attributes: half, newton on
+      pair build: copy
+      stencil: none
+      bin: none
+Per MPI rank memory allocation (min/avg/max) = 4.460 | 4.460 | 4.460 Mbytes
+Step Temp E_pair E_mol TotEng Press Volume 
+       0            3   -2.1664468            0 -0.030732475   -1.9332657    571.54286 
+     500    1.1127527   -1.8674512            0   -1.0752773   0.59394285    578.91097 
+    1000            1   -1.9467498            0   -1.2348451   0.26599937    576.59085 
+    1500     1.261256   -2.0811979            0   -1.1833037  0.022075429    558.01508 
+    2000            1   -2.1949228            0    -1.483018   0.13824806    538.27004 
+    2500    1.2555317   -2.3383026            0   -1.4444836   0.63177877     512.9093 
+    3000            1   -2.2967242            0   -1.5848195    2.0618621    493.99169 
+    3500     1.202817   -2.3269956            0   -1.4707044    2.2144639    488.98622 
+    4000            1   -2.3482603            0   -1.6363555    1.4085962     496.0965 
+    4500    1.1759223    -2.385951            0   -1.5488063   0.58153768    505.87161 
+    5000            1    -2.390211            0   -1.6783062   0.60438922      503.244 
+    5500    1.2028174    -2.404848            0   -1.5485565    1.2040764    495.81435 
+    6000            1   -2.3649383            0   -1.6530335    1.5178494    492.54355 
+    6500    1.2253264   -2.4517713            0   -1.5794556    1.0769607    492.25965 
+    7000            1   -2.4214818            0    -1.709577    1.0586126    493.69021 
+    7500    1.1563446   -2.3970528            0   -1.5738456    1.2394873    494.94154 
+    8000            1    -2.391644            0   -1.6797392    1.1402203    497.15911 
+    8500    1.2103844   -2.4159883            0   -1.5543098   0.96673943    497.59123 
+    9000            1   -2.4151209            0   -1.7032162    1.1589304    493.80877 
+    9500    1.1493948   -2.4488096            0   -1.6305499    1.2091061    490.88239 
+   10000            1   -2.4567451            0   -1.7448404    1.2905041    489.12001 
+Loop time of 2.76558 on 4 procs for 10000 steps with 420 atoms
+
+Performance: 937237.109 tau/day, 3615.884 timesteps/s
+99.7% CPU use with 4 MPI tasks x no OpenMP threads
+
+MPI task timing breakdown:
+Section |  min time  |  avg time  |  max time  |%varavg| %total
+---------------------------------------------------------------
+Pair    | 1.3988     | 1.9307     | 2.4208     |  34.4 | 69.81
+Neigh   | 0.055588   | 0.092324   | 0.12938    |  12.0 |  3.34
+Comm    | 0.1285     | 0.66544    | 1.2446     |  64.3 | 24.06
+Output  | 0.0024484  | 0.0033665  | 0.0036731  |   0.9 |  0.12
+Modify  | 0.045646   | 0.056706   | 0.068503   |   4.4 |  2.05
+Other   |            | 0.01703    |            |       |  0.62
+
+Nlocal:        105.000 ave         106 max         104 min
+Histogram: 1 0 0 0 0 2 0 0 0 1
+Nghost:        478.500 ave         479 max         478 min
+Histogram: 2 0 0 0 0 0 0 0 0 2
+Neighs:        13905.8 ave       18132 max        9832 min
+Histogram: 2 0 0 0 0 0 0 0 0 2
+
+Total # of neighbors = 55623
+Ave neighs/atom = 132.43571
+Neighbor list builds = 653
+Dangerous builds = 0
+Total wall time: 0:00:02
